@@ -11,6 +11,7 @@
 
 """Methods for generating static images"""
 import re
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib as mpl
@@ -18,7 +19,6 @@ import matplotlib.pyplot as plt
 
 from mpl_toolkits.axes_grid1 import ImageGrid
 
-from . import ear_data as edata
 from . import io_api
 
 
@@ -61,11 +61,20 @@ def _get_elapsed(index, tick_idx):
     return time_deltas[tick_idx].seconds
 
 
-def runtime_metric_timeline_fig(df, df_app, min_start_time, max_end_time,
-                                metric, step, **kwargs):
+def _metric_timeseries_by_node(df, metric):
+    """
+    """
+    columns = ['JOBID', 'STEPID', 'APPID', 'NODENAME']
+    return (df
+            .pivot_table(columns=columns, values=metric, index='TIMESTAMP')
+            )
+
+
+def runtime_metric_timeline_fig(df, df_app, metric, step, **kwargs):
     """
     Generates the timeline gradient figure.
-
+    - df: DataFrame with EAR loop signatures.
+    - df_app: DataFrame with EAR application signatures.
     kwargs:
         - v_min: Heatmap gradient lower bound. Default: None.
         - v_max: Heatmap gradient upper bound. Default: None.
@@ -92,10 +101,7 @@ def runtime_metric_timeline_fig(df, df_app, min_start_time, max_end_time,
 
     # Metric data is a pivot table indexed by TIMESTAMP, with a MultiIndex
     # columns with (metric, JOBID, STEPID, APPID, NODENAME).
-    m_data = (edata
-              .metric_timeseries_by_node(df, df_app,
-                                         df.filter(regex=metric).columns)
-              )
+    m_data = _metric_timeseries_by_node(df, df.filter(regex=metric).columns)
 
     # Convert index to datetime
     m_data.index = pd.to_datetime(m_data.index, unit='s')
@@ -177,7 +183,9 @@ def runtime_metric_timeline_fig(df, df_app, min_start_time, max_end_time,
 
 def runtime_get_configuration(config_fn):
     """
-    Reads the configuration file name passed and returns runtime configuration
+    Reads the configuration file name passed and returns runtime configuration.
+    The returned configuration may be used when calling other methods for
+    retrieving specific configuration.
     """
     return io_api.read_configuration(config_fn)['runtime']
 
@@ -222,3 +230,13 @@ def runtime_get_gpu_metrics_regex(runtime_config):
     Returns the regex to match GPU columns
     """
     return runtime_config['gpu_data']['gpu_columns_re']
+
+
+def runtime_section(configuration):
+    """
+    Returns the 'runtime' section of the configuration dict.
+    """
+    try:
+        return configuration['runtime']
+    except KeyError:
+        sys.exit('runtime section not found in the configuration provided')

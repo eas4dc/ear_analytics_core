@@ -32,13 +32,17 @@ def df_get_valid_gpu_data(df, gpu_metrics_regex):
             .mask(lambda x: x.isna(), other=0))  # Return to 0s
 
 
+def df_has_gpu_data(df, gpu_metrics_regex):
+    """
+    Returns whether the DataFrame df has valid GPU data.
+    """
+    return not df.pipe(df_get_valid_gpu_data, gpu_metrics_regex).empty
+
+
 def filter_invalid_gpu_series(df, gpu_metrics_regex):
     """
     Given a DataFrame with EAR data, filters those GPU
     columns that not contain some of the job's GPUs used.
-
-    TODO: Pay attention here because this function depends directly
-    on EAR's output.
     """
     return (df
             .drop(df  # Erase GPU columns
@@ -48,6 +52,7 @@ def filter_invalid_gpu_series(df, gpu_metrics_regex):
                   validate='one_to_one'))  # Validate the join operation
 
 
+# TODO: This function is not called anywhere
 def df_gpu_node_metrics(df, conf_fn):
     """
     Given a DataFrame `df` with EAR data and a configuration filename `conf_fn`
@@ -86,16 +91,6 @@ def df_gpu_node_metrics(df, conf_fn):
                 avg_gr_engine_active=lambda x: (x.filter(regex=gr_active_regex)
                                                 .mean(axis=1))
                 ))
-
-
-def metric_timeseries_by_node(df, df_job, metric):
-    """
-    """
-    columns = ['JOBID', 'STEPID', 'APPID', 'NODENAME']
-    df_job = df_job.set_index(columns)[['START_TIME', 'END_TIME']]
-    return (df
-            .pivot_table(columns=columns, values=metric, index='TIMESTAMP')
-            )
 
 
 def metric_agg_timeseries(df, metric):

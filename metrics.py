@@ -46,15 +46,6 @@ def metric_step(metric, metrics_conf):
     return metrics_conf[metric]['step']
 
 
-def get_plottable_metrics(metrics_conf):
-    """
-    Filters just those metrics that can be plotted.
-    """
-    print(metrics_conf.keys())
-    return {k: v for (k, v) in metrics_conf.items()
-            if k not in ['job_step', 'node_count', 'energy', 'cpu_flops']}
-
-
 def print_runtime_metrics(filename):
     runtime_config = read_configuration(filename)['runtime']
 
