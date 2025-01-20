@@ -151,8 +151,9 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, **kwargs):
         gpu_metric_match = gpu_metric_regex.search(m_data.columns[i][0])
 
         if gpu_metric_match:
-            ylabel_text = (f'GPU{gpu_metric_match.group(1)}'
-                           f' @ {m_data.columns[i][1]}')
+            ylabel_text = (f'{m_data.columns[i][1]}'
+                           f'.{m_data.columns[i][2]}'
+                           f'.{m_data.columns[i][3]}@{m_data.columns[i][4]}.GPU{gpu_metric_match.group(1)}')
         else:
             ylabel_text = (f'{m_data.columns[i][1]}'
                            f'.{m_data.columns[i][2]}'
