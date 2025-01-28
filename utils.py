@@ -55,6 +55,6 @@ def read_loop_data_config(filename):
 
 def function_compose(*funcs):
     def compose(f, g):
-        return lambda x: f(g(x))
+        return lambda *args, **kwargs: f(g(*args, **kwargs))
 
     return reduce(compose, funcs)

@@ -25,6 +25,19 @@ def read_phases_configuration(filename):
     return read_configuration(filename)['phases']
 
 
+def phases_filter_from_other_events(df, phases_conf):
+    """
+    Returns the events DataFrame `df` filtering those rows correspondig to
+    phase events. Phase names to filter must be in a key-value pair from
+    `phases_conf` dict where key='filter' and the value must be a list of
+    phase names.
+
+    If no filter provided, the resulting DataFrame will be empty.
+    """
+    valid_phases = phases_conf.get('filter', [])
+    return df[df['Event_type'].isin(valid_phases)]
+
+
 def phases_all_phases(phases_conf):
     """
     Given a phase configuration dict, returns a generator of tuple with the
@@ -58,9 +71,10 @@ def df_phases_total_time(df, phases_conf):
 
     def get_column_name(key):
         """
-        Returns the 'column_name' value of the phase keyed as `key`.
+        Returns the 'column_name' value of the phase keyed as `key` if `key`
+        has a `column_name` key. Otherwise returns an empty string.
         """
-        return phases_conf[key]['column_name']
+        return phases_conf[key].get('column_name', '')
 
     return (df
             .assign(
@@ -79,7 +93,7 @@ def df_phases_phase_time_ratio(df, phases_conf):
     """
 
     # We get a DataFrame with total exec. time
-    df = df_phases_total_time(df, phases_conf)
+    df = df_phases_total_time(df, phases_conf['config'])
 
     def compute_phase_ratio(phase):
         """
@@ -91,7 +105,7 @@ def df_phases_phase_time_ratio(df, phases_conf):
         return (phase[0], timeperc_vs_total)
 
     new_columns = dict(map(compute_phase_ratio,
-                           phases_all_phases(phases_conf)))
+                           phases_all_phases(phases_conf['config'])))
 
     return (df
             .assign(**new_columns)
