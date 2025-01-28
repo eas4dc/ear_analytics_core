@@ -182,6 +182,16 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, **kwargs):
     return fig
 
 
+def runtime_config_section(runtime_config_func):
+    def try_getting_section(*args, **kwargs):
+        try:
+            return runtime_config_func(*args, **kwargs)
+        except KeyError as e:
+            sys.exit(f'Your configuration hasn\'t the following field: {e}')
+    return try_getting_section
+
+
+@runtime_config_section
 def runtime_get_configuration(config_fn):
     """
     Reads the configuration file name passed and returns runtime configuration.
@@ -191,6 +201,7 @@ def runtime_get_configuration(config_fn):
     return io_api.read_configuration(config_fn)['runtime']
 
 
+@runtime_config_section
 def runtime_node_metrics_configuration(runtime_config):
     """
     Returns the node metrics configuration from runtime configuration
@@ -198,6 +209,7 @@ def runtime_node_metrics_configuration(runtime_config):
     return runtime_config['metrics']
 
 
+@runtime_config_section
 def runtime_gpu_metrics_configuration(runtime_config):
     """
     Returns the gpu metrics configuration from runtime configuration
@@ -205,6 +217,7 @@ def runtime_gpu_metrics_configuration(runtime_config):
     return runtime_config['gpu_metrics']
 
 
+@runtime_config_section
 def runtime_socket_metrics_configuration(runtime_config):
     """
     Returns the socket metrics configuration from runtime configuration
@@ -212,6 +225,7 @@ def runtime_socket_metrics_configuration(runtime_config):
     return runtime_config['socket_metrics']
 
 
+@runtime_config_section
 def runtime_app_start_time_col(runtime_config):
     """
     Returns the column refering to the START_TIME of an application
@@ -219,6 +233,7 @@ def runtime_app_start_time_col(runtime_config):
     return runtime_config['app_info']['start_time']
 
 
+@runtime_config_section
 def runtime_app_end_time_col(runtime_config):
     """
     Returns the column refering to the START_TIME of an application
@@ -226,18 +241,20 @@ def runtime_app_end_time_col(runtime_config):
     return runtime_config['app_info']['end_time']
 
 
+@runtime_config_section
 def runtime_get_gpu_metrics_regex(runtime_config):
     """
     Returns the regex to match GPU columns
     """
-    return runtime_config['gpu_data']['gpu_columns_re']
+    try:
+        return runtime_config['gpu_data']['gpu_columns_re']
+    except KeyError as e:
+        sys.exit(f'{e} field not found in configuration:{runtime_config}')
 
 
+@runtime_config_section
 def runtime_section(configuration):
     """
     Returns the 'runtime' section of the configuration dict.
     """
-    try:
-        return configuration['runtime']
-    except KeyError:
-        sys.exit('runtime section not found in the configuration provided')
+    return configuration['runtime']
