@@ -12,9 +12,10 @@
 """ IO support for the tool set. """
 import os
 import configparser
+import sys
 
 from itertools import dropwhile
-from json import load, dumps
+from json import load, dumps, JSONDecodeError
 
 import pandas as pd
 
@@ -40,7 +41,7 @@ def read_data(file_path, **kwargs):
     if isinstance(file_path, str):
         # `file_path` is only a string containing some file or a directory
         if os.path.isfile(file_path):
-            print(f'reading file {file_path}')
+            # print(f'reading file {file_path}')
             data_f = pd.concat(load_files([file_path]), ignore_index=True)
         elif os.path.isdir(file_path):
             print(f'reading files contained in directory {file_path}')
@@ -85,7 +86,11 @@ def read_configuration(filename):
     Returns the loaded dict directly.
     """
     with open(filename, 'r', encoding='utf-8') as fn:
-        return load(fn)
+        try:
+            return load(fn)
+        except JSONDecodeError as e:
+            sys.exit(f'Error: {filename} is not a valid JSON document '
+                     f'(lineno {e.lineno}; colno {e.colno}; {e.msg})')
 
 
 def print_configuration(filename):
