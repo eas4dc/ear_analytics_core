@@ -39,14 +39,16 @@ def _build_gradient_norm(data_values, step, v_min=None, v_max=None):
                        v_max + step if v_max is not None
                        else np.nanmax(data_values) + step,
                        step)
-    if bounds.size > 16 or bounds.size < 5:
+    if bounds.size == 1:
+        print(f'Warning: Requested data range is constant: {bounds}')
+        bounds = np.array([bounds[0] - step, bounds[0], bounds[0] + step])
+    elif bounds.size > 16 or bounds.size < 5:
         print(f'Warning! {bounds.size} discrete intervals generated.')
 
         if bounds.size > 16:
             print(f'Consider increasing the step (currently {step})')
         else:
             print(f'Consider decreasing the step (currently {step})')
-
     cmap = mpl.colormaps['viridis_r']
     return mpl.colors.BoundaryNorm(bounds, cmap.N, extend='both')
 
