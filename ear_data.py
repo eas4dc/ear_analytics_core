@@ -16,6 +16,7 @@ import numpy as np
 
 from .utils import join_metric_node
 from .metrics import read_metrics_configuration, metric_regex
+from .console import warning, error
 
 
 def df_get_valid_gpu_data(df, gpu_metrics_regex):
@@ -106,3 +107,67 @@ def metric_agg_timeseries(df, metric):
            .pipe(join_metric_node)
            .agg(np.sum, axis=1)
            )
+
+
+def filter_and_query(df, rules):
+    """
+    Returns the resulting DataFrame of applying filtering rules to the passed
+    dataframe `df`. The function first performs a pre-filtering of the
+    dataframe based on column labels and then uses the pandas.DataFrame.query
+    method to query for specific row values.
+
+    Rules are configured in `rules` as a dict with the following
+    <key, value> pairs:
+        - 'filter': <A dictionary with a pandas.DataFrame.filter's kwarg. This
+          key is optional and it is used to call the function to the passed
+          dataframe before querying.
+        - 'expr': 'A valid string to be passed to pandas.DataFrame.query
+          function called on the filtered dataframe. This field is required
+          if and only if the next key is not found.
+        - 'criteria': 'A string with a valid query operation to be concatenated
+          with every column of the pre-filtered dataframe.'
+        - 'join': 'A string with conditional operator, e.g., and, or.'
+
+    (Optional) Pre-filtering consists of calling pandas.DataFrame.filter on
+    the passed dataframe and using rules' 'filter' dictionary as kwarg,
+    i.e., df.filter(**rules['filter']).
+
+    If `rules` contains 'expr' string, pandas.DataFrame.query is called
+    directly. Otherwise, the expression is build as:
+        <column..0> <criteria> [<join> <column..1> <criteria>]*
+    where 'join' operator is used just when more than one column is found in
+    (maybe pre-filtered) dataframe and it is the 'or' string if `rules` does
+    not provide it.
+    """
+    # If the configuration does not have the 'filter' field, we apply
+    # the filter which returns the identical df
+    prefilter = rules.get('filter', {'items': df.columns})
+    df_filtered = df.filter(**prefilter)
+
+    if not df_filtered.empty:
+        expr = create_ear_dataframe_query(df_filtered, rules)
+        return df_filtered.query(expr), expr
+    else:
+        return df_filtered, None
+
+
+def create_ear_dataframe_query(df, rules):
+    """Support function for creating the query usied by
+    ear_dataframe_filter_and_query"""
+    expr = rules.get('expr', None)
+    if expr is None:
+        try:
+            criteria = rules['criteria']
+        except KeyError as e:
+            warning(f'The rule has not {e} field.')
+            return None
+        else:
+            # Create the query to check whether some row matches the
+            # alert criteria
+            # Format: <column> <criteria> <join> <column> <criteria>...
+            join = rules.get('join', 'or')
+            expr = (f' {join} '
+                    .join([f'`{col}` {criteria}'
+                           for col in df.columns])
+                    )
+    return expr
