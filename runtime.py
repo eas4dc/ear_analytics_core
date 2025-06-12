@@ -72,11 +72,16 @@ def _metric_timeseries_by_node(df, metric):
             )
 
 
-def runtime_metric_timeline_fig(df, df_app, metric, step, **kwargs):
+def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
+                                **kwargs):
     """
     Generates the timeline gradient figure.
     - df: DataFrame with EAR loop signatures.
     - df_app: DataFrame with EAR application signatures.
+    - metric: The EAR metric for which to generate the gradient.
+    - step: The gradient is built on discretized values to help for
+            interpreting results. The step specifies the gap between discrete
+            values.
     kwargs:
         - v_min: Heatmap gradient lower bound. Default: None.
         - v_max: Heatmap gradient upper bound. Default: None.
@@ -84,6 +89,8 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, **kwargs):
         - metric_display_name: Specify how the metric name must be displayed.
             Default: ''.
         - gpu_metrics_re: A regex to find GPU columns.
+        - start_time_colname: The name of column which has the start time.
+        - end_time_colname: The name of the column which has the end time.
 
     Returns: A figure.
     """
@@ -108,18 +115,24 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, **kwargs):
     # Convert index to datetime
     m_data.index = pd.to_datetime(m_data.index, unit='s')
 
+    # Job start time column name
+    st_colname = kwargs.get('start_time_colname', 'JOB_EARL_START_TIME')
+
+    # Job end time column name
+    et_colname = kwargs.get('end_time_colname', 'JOB_EARL_END_TIME')
+
     # Job DataFrame indexed by (JOBID, STEPID, APPID, NODENAME)
     job_data = (df_app
                 .set_index(['JOBID', 'STEPID', 'APPID', 'NODENAME'])
-                .loc[:, ['START_TIME', 'END_TIME']]
+                .loc[:, [st_colname, et_colname]]  # Start/end time
                 .apply(pd.to_datetime, unit='s'))
 
     # Fill data between the start/end time of each job,step,app,node
     jobs = []
     for job_id, step_id, app_id, node in job_data.index:
         start_time = job_data.loc[(job_id, step_id, app_id, node),
-                                  'START_TIME']
-        end_time = job_data.loc[(job_id, step_id, app_id, node), 'END_TIME']
+                                  st_colname]
+        end_time = job_data.loc[(job_id, step_id, app_id, node), et_colname]
 
         app_node_df = (m_data
                        .loc[:,
