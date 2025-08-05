@@ -147,7 +147,7 @@ def df_gpu_node_metrics(df, conf_fn):
                                            .mean(axis=1)),  # Avg %GPU mem util
                 avg_gr_engine_active=lambda x: (x.filter(regex=gr_active_regex)
                                                 .mean(axis=1))
-                ))
+            ))
 
 
 def metric_agg_timeseries(df, metric):
@@ -155,14 +155,14 @@ def metric_agg_timeseries(df, metric):
     TODO: Pay attention here because this function depends directly
     on EAR's output.
     """
-    return(df
-           .pivot_table(values=metric,
-                        index='TIMESTAMP', columns='NODENAME')
-           .bfill()
-           .ffill()
-           .pipe(join_metric_node)
-           .agg(np.sum, axis=1)
-           )
+    return (df
+            .pivot_table(values=metric,
+                         index='TIMESTAMP', columns='NODENAME')
+            .bfill()
+            .ffill()
+            .pipe(join_metric_node)
+            .agg(np.sum, axis=1)
+            )
 
 
 def filter_batch_step(ear_df):
