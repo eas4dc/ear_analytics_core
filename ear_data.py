@@ -109,6 +109,19 @@ def metric_agg_timeseries(df, metric):
            )
 
 
+def filter_batch_step(ear_df):
+    """
+    This function returns the DataFrame `ear_df` without any SLURM batch step
+    if it has some.
+
+    Parameters
+    ----------
+    ear_df: A DataFrame containing EAR signature data. It must have a column
+            named 'STEPID'.
+    """
+    return ear_df.loc[ear_df['STEPID'] != 4294967291]
+
+
 def filter_and_query(df, rules):
     """
     Returns the resulting DataFrame of applying filtering rules to the passed
