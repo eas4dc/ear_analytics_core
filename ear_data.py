@@ -12,11 +12,13 @@
 """ This module contains functions that can be applied
 to a DataFrame contained known EAR data. """
 
+import re
 import numpy as np
+import pandas
 
 from .utils import join_metric_node
 from .metrics import read_metrics_configuration, metric_regex
-from .console import warning, error
+from .console import warning
 
 
 def df_filter_invalid_gpu_cols(df: pandas.DataFrame) -> pandas.DataFrame:
@@ -214,8 +216,7 @@ def filter_and_query(df, rules):
     if not df_filtered.empty:
         expr = create_ear_dataframe_query(df_filtered, rules)
         return df_filtered.query(expr), expr
-    else:
-        return df_filtered, None
+    return df_filtered, None
 
 
 def create_ear_dataframe_query(df, rules):
@@ -228,13 +229,12 @@ def create_ear_dataframe_query(df, rules):
         except KeyError as e:
             warning(f'The rule has not {e} field.')
             return None
-        else:
-            # Create the query to check whether some row matches the
-            # alert criteria
-            # Format: <column> <criteria> <join> <column> <criteria>...
-            join = rules.get('join', 'or')
-            expr = (f' {join} '
-                    .join([f'`{col}` {criteria}'
-                           for col in df.columns])
-                    )
+        # Create the query to check whether some row matches the
+        # alert criteria
+        # Format: <column> <criteria> <join> <column> <criteria>...
+        join = rules.get('join', 'or')
+        expr = (f' {join} '
+                .join([f'`{col}` {criteria}'
+                       for col in df.columns])
+                )
     return expr
