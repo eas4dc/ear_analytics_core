@@ -19,6 +19,60 @@ from .metrics import read_metrics_configuration, metric_regex
 from .console import warning, error
 
 
+def df_filter_invalid_gpu_cols(df: pandas.DataFrame) -> pandas.DataFrame:
+    """
+    Given a DataFrame containing EAR data, returns a copy if it without all
+    those invalid GPU columns.
+
+    An invalid GPU column is a column with data of a GPU x, for which EAR did
+    not report any GPUx_POWER_W reading.
+    """
+    # The regex is precompiled since it is searched multiple times.
+    gpu_colname_pattern = re.compile(r'GPU(\d)_POWER_W')
+
+    def return_gpupwr_index(gpupwr_colname: str) -> str:
+        """
+        Given a str of the form r'GPUx_POWER_W', returns the x part, if
+        found. Otherwise, returns None.
+
+        The regular expression pattern is taken from gpu_colname_pattern.
+        """
+        # TODO: Use returns Maybe container
+        match = re.fullmatch(gpu_colname_pattern, gpupwr_colname)
+        if match:
+            try:
+                return match.group(1)
+            except IndexError:
+                return None
+        else:
+            return None
+
+    invalid_gpu_indices = filter(None,  # Filter all elements which are false
+                                 map(return_gpupwr_index,
+                                     df_get_invalid_gpupower_cols(df))
+                                 )
+
+    indices_or = '|'.join(invalid_gpu_indices)
+    filter_str = fr'GPU({indices_or})_\w+'
+    return df.drop(columns=df.filter(regex=filter_str).columns)
+
+
+def df_get_invalid_gpupower_cols(df: pandas.DataFrame) -> pandas.Index:
+    """
+    Given a pd.DataFrame with EAR data, returns those columns which are
+    actually invalid GPU Power data.
+
+    Invalid GPU power data is all those GPUx_POWER_W columns of the DataFrame
+    that are full of zero values.
+    """
+    return (df
+            .filter(regex=r'GPU\d_POWER_W')
+            .mask(lambda x: x != 0)  # All non-zero as nan
+            .dropna(axis=1, how='all')  # Drop nan columns
+            .columns
+            )
+
+
 def df_get_valid_gpu_data(df, gpu_metrics_regex):
     """
     Returns a DataFrame with only valid GPU data.
