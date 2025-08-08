@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ear-analytics-core"
+authors = [
+  {name = "Oriol Vidal", email = "oriol.vidal@eas4dc.com"},
+  {name = "Jalal Lakhlili", email = "jalal.lakhlili@eas4dc.com"}
+]
+description = "Core library for EAR analytics and Energy Models."
+readme = "README.md"
+keywords = ["data", "hpc", "analysis", "ear"]
+license = {text = "EPL-2.0"}
+classifiers = [
+  "Programming Language :: Python :: 3",
+]
+version = "5.0.0"
+dependencies = [
+	"numpy",
+  "pandas",
+  "importlib_resources",
+	"rich",
+  "pylatex"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+docs = [
+  "sphinx"
+]
+tests = [
+  "pytest"
+]
+
+
