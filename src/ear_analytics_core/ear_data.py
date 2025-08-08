@@ -18,7 +18,61 @@ import pandas as pd
 
 from .utils import join_metric_node
 from .metrics import read_metrics_configuration, metric_regex
-from .console import warning, error
+from .console import warning
+
+
+def df_filter_invalid_gpu_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Given a DataFrame containing EAR data, returns a copy if it without all
+    those invalid GPU columns.
+
+    An invalid GPU column is a column with data of a GPU x, for which EAR did
+    not report any GPUx_POWER_W reading.
+    """
+    # The regex is precompiled since it is searched multiple times.
+    gpu_colname_pattern = re.compile(r'GPU(\d)_POWER_W')
+
+    def return_gpupwr_index(gpupwr_colname: str) -> str:
+        """
+        Given a str of the form r'GPUx_POWER_W', returns the x part, if
+        found. Otherwise, returns None.
+
+        The regular expression pattern is taken from gpu_colname_pattern.
+        """
+        # TODO: Use returns Maybe container
+        match = re.fullmatch(gpu_colname_pattern, gpupwr_colname)
+        if match:
+            try:
+                return match.group(1)
+            except IndexError:
+                return None
+        else:
+            return None
+
+    invalid_gpu_indices = filter(None,  # Filter all elements which are false
+                                 map(return_gpupwr_index,
+                                     df_get_invalid_gpupower_cols(df))
+                                 )
+
+    indices_or = '|'.join(invalid_gpu_indices)
+    filter_str = fr'GPU({indices_or})_\w+'
+    return df.drop(columns=df.filter(regex=filter_str).columns)
+
+
+def df_get_invalid_gpupower_cols(df: pd.DataFrame) -> pd.Index:
+    """
+    Given a pd.DataFrame with EAR data, returns those columns which are
+    actually invalid GPU Power data.
+
+    Invalid GPU power data is all those GPUx_POWER_W columns of the DataFrame
+    that are full of zero values.
+    """
+    return (df
+            .filter(regex=r'GPU\d_POWER_W')
+            .mask(lambda x: x != 0)  # All non-zero as nan
+            .dropna(axis=1, how='all')  # Drop nan columns
+            .columns
+            )
 
 
 def df_get_valid_gpu_data(df, gpu_metrics_regex):
@@ -93,7 +147,7 @@ def df_gpu_node_metrics(df, conf_fn):
                                            .mean(axis=1)),  # Avg %GPU mem util
                 avg_gr_engine_active=lambda x: (x.filter(regex=gr_active_regex)
                                                 .mean(axis=1))
-                ))
+            ))
 
 
 def metric_agg_timeseries(df, metric):
@@ -101,40 +155,53 @@ def metric_agg_timeseries(df, metric):
     TODO: Pay attention here because this function depends directly
     on EAR's output.
     """
-    return(df
-           .pivot_table(values=metric,
-                        index='TIMESTAMP', columns='NODENAME')
-           .bfill()
-           .ffill()
-           .pipe(join_metric_node)
-           .agg(np.sum, axis=1)
-           )
+    return (df
+            .pivot_table(values=metric,
+                         index='TIMESTAMP', columns='NODENAME')
+            .bfill()
+            .ffill()
+            .pipe(join_metric_node)
+            .agg(np.sum, axis=1)
+            )
+
+
+def filter_batch_step(ear_df):
+    """
+    This function returns the DataFrame `ear_df` without any SLURM batch step
+    if it has some.
+
+    Parameters
+    ----------
+    ear_df: A DataFrame containing EAR signature data. It must have a column
+            named 'STEPID'.
+    """
+    return ear_df.loc[ear_df['STEPID'] != 4294967291]
 
 
 def filter_and_query(df, rules):
     """
     Returns the resulting DataFrame of applying filtering rules to the passed
     dataframe `df`. The function first performs a pre-filtering of the
-    dataframe based on column labels and then uses the pandas.DataFrame.query
+    dataframe based on column labels and then uses the pd.DataFrame.query
     method to query for specific row values.
 
     Rules are configured in `rules` as a dict with the following
     <key, value> pairs:
-        - 'filter': <A dictionary with a pandas.DataFrame.filter's kwarg. This
+        - 'filter': <A dictionary with a pd.DataFrame.filter's kwarg. This
           key is optional and it is used to call the function to the passed
           dataframe before querying.
-        - 'expr': 'A valid string to be passed to pandas.DataFrame.query
+        - 'expr': 'A valid string to be passed to pd.DataFrame.query
           function called on the filtered dataframe. This field is required
           if and only if the next key is not found.
         - 'criteria': 'A string with a valid query operation to be concatenated
           with every column of the pre-filtered dataframe.'
         - 'join': 'A string with conditional operator, e.g., and, or.'
 
-    (Optional) Pre-filtering consists of calling pandas.DataFrame.filter on
+    (Optional) Pre-filtering consists of calling pd.DataFrame.filter on
     the passed dataframe and using rules' 'filter' dictionary as kwarg,
     i.e., df.filter(**rules['filter']).
 
-    If `rules` contains 'expr' string, pandas.DataFrame.query is called
+    If `rules` contains 'expr' string, pd.DataFrame.query is called
     directly. Otherwise, the expression is build as:
         <column..0> <criteria> [<join> <column..1> <criteria>]*
     where 'join' operator is used just when more than one column is found in
@@ -149,8 +216,7 @@ def filter_and_query(df, rules):
     if not df_filtered.empty:
         expr = create_ear_dataframe_query(df_filtered, rules)
         return df_filtered.query(expr), expr
-    else:
-        return df_filtered, None
+    return df_filtered, None
 
 
 def create_ear_dataframe_query(df, rules):
@@ -163,15 +229,14 @@ def create_ear_dataframe_query(df, rules):
         except KeyError as e:
             warning(f'The rule has not {e} field.')
             return None
-        else:
-            # Create the query to check whether some row matches the
-            # alert criteria
-            # Format: <column> <criteria> <join> <column> <criteria>...
-            join = rules.get('join', 'or')
-            expr = (f' {join} '
-                    .join([f'`{col}` {criteria}'
-                           for col in df.columns])
-                    )
+        # Create the query to check whether some row matches the
+        # alert criteria
+        # Format: <column> <criteria> <join> <column> <criteria>...
+        join = rules.get('join', 'or')
+        expr = (f' {join} '
+                .join([f'`{col}` {criteria}'
+                       for col in df.columns])
+                )
     return expr
 
 
