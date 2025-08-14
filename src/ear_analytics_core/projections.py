@@ -94,7 +94,7 @@ def compute_basic_projections(
     ].apply(lambda x: freqs_list[np.abs(freqs_list - x).argmin()])
 
     # target dataframe containg projections
-    cols = ["NODENAME", "JOBID", "STEPID", "JOBNAME", "POLICY", "POLICY_TH",
+    cols = ["NODENAME", "JOBID", "STEPID", "APPID", "JOBNAME", "POLICY", "POLICY_TH",
             "DEF_FREQ_KHZ", "AVG_CPUFREQ_KHZ", "CPI", "TPI", "MEM_GBS",
             "FROM_FREQ_KHZ", "TO_FREQ_KHZ",
             "TIME_SEC", "PROJ_TIME_SEC", "POWER_W", "PROJ_POWER_W",
