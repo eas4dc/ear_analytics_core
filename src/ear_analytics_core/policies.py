@@ -23,7 +23,7 @@ __all__ = ["compute_policy_savings"]
 def simulate_cpu_policy(
         df_proj: pd.DataFrame,
         thresholds: list[float] = None,
-        verbose: bool = True
+        verbose: bool = False
     ) ->  pd.DataFrame:
     """
     Estimates the potential energy savings from runs executed with monitoring.
@@ -32,7 +32,7 @@ def simulate_cpu_policy(
         if verbose:
             logger.warning("Dataset does not contain runs with monitoring: "
                 "potential savings will not be evaluated")
-        return
+        return pd.DataFrame()
     else:
         if verbose:
             logger.info("Dataset contains runs with monitoring: "
@@ -59,7 +59,7 @@ def simulate_cpu_policy(
     return df
 
 
-def evaluate_cpu_policy(df_proj: pd.DataFrame, verbose: bool = True):
+def evaluate_cpu_policy(df_proj: pd.DataFrame, verbose: bool = False):
     """
     Evaluates the energy savings achieved from the runs with min-energy policy
     """
@@ -67,7 +67,7 @@ def evaluate_cpu_policy(df_proj: pd.DataFrame, verbose: bool = True):
         if verbose:
             logger.warning("Dataset does not contain runs with min-energy: "
                 "policy savings will not be evaluated")
-        return
+        return pd.DataFrame()
     else:
         if verbose:
             logger.info("Dataset contains runs with min-energy, "
@@ -199,22 +199,20 @@ def compute_policy_savings(
     if apps_file and os.path.exists(apps_file):
         if verbose:
             logger.info(f"Reading applications signature from file: {apps_file}")
-        apps_df = read_apps_data(apps_file)
     else:
         logger.error(f"The application signatures file {apps_file} not found")
-        return
+        return pd.DataFrame()
 
     if coeffs_file and os.path.exists(coeffs_file):
         if verbose:
             logger.info(f"Reading coefficients from file: {coeffs_file}")
-        coeffs_df = pd.read_csv(coeffs_file, sep=";")
     else:
         logger.error(f"The coefficients file {apps_file} not found")
-        return
+        return pd.DataFrame()
 
     if model_name not in ["basic", "basic_perc", "spr_imc_perc"]:
         logger.error(f"Unsupported model: '{model_name}")
-        return
+        return pd.DataFrame()
     else:
         if verbose:
             logger.info(f"The model {model_name} will be used")
