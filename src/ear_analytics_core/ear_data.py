@@ -223,7 +223,7 @@ def read_apps_data(data_file: str)-> pd.DataFrame:
 
     # signatures we intersred in (can be expanded)
     sigs_list = [
-        "NODENAME", "JOBID", "STEPID", "JOBNAME","POLICY", "POLICY_TH",
+        "NODENAME", "JOBID", "STEPID", "APPID", "JOBNAME","POLICY", "POLICY_TH",
         "DEF_FREQ_KHZ", "AVG_CPUFREQ_KHZ", "AVG_IMCFREQ_KHZ",
         "TIME_SEC","POWER_W","ENERGY_J", "DC_NODE_POWER_W", "GPU_POWER_W",
         "DRAM_POWER_W","PCK_POWER_W", "CPI", "TPI", "MEM_GBS", "IO_MBS",
