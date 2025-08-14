@@ -230,7 +230,7 @@ def compute_policy_savings(
     df = pd.concat([df_mon, df_pol], ignore_index=True)
 
     # Show a summury of the potential and/or estimated savings
-    if summury:
+    if summary:
         logger.info("")
         savings_summarize(df_mon, df_pol)
 
