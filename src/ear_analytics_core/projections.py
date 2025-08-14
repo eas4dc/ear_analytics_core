@@ -198,18 +198,16 @@ def compute_projections(
     if apps_file and os.path.exists(apps_file):
         if verbose:
             logger.info(f"Reading applications signature from file: {apps_file}")
-        apps_df = read_apps_data(apps_file)
     else:
         logger.error(f"The application signatures file {apps_file} not found")
-        return
+        return pd.DataFrame()
 
     if coeffs_file and os.path.exists(coeffs_file):
         if verbose:
             logger.info(f"Reading coefficients from file: {coeffs_file}")
-        coeffs_df = pd.read_csv(coeffs_file, sep=";")
     else:
         logger.error(f"The coefficients file {apps_file} not found")
-        return
+        return pd.DataFrame()
 
     df_apps = read_apps_data(apps_file)
     df_coeffs = pd.read_csv(coeffs_file, sep=";")
@@ -222,6 +220,7 @@ def compute_projections(
         pass
     else:
         logger.error(f"Unsupported model: '{model_name}'")
+        return pd.DataFrame()
 
     # Store the results in a csv file
     if save_results:
