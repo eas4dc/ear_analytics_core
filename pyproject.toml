@@ -18,10 +18,11 @@ classifiers = [
 version = "5.0.0"
 dependencies = [
 	"numpy",
-  "pandas",
+  "pandas[performance, plot, output-formatting]",
   "importlib_resources",
 	"rich",
-  "pylatex"
+  "pylatex",
+	"returns",
 ]
 
 [tool.setuptools]

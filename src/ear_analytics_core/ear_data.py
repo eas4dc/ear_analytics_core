@@ -16,6 +16,8 @@ import re
 import numpy as np
 import pandas as pd
 
+from returns.result import Result, Failure, Success
+
 from .utils import join_metric_node
 from .metrics import read_metrics_configuration, metric_regex
 from .console import warning
@@ -23,7 +25,7 @@ from .console import warning
 
 def df_filter_invalid_gpu_cols(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Given a DataFrame containing EAR data, returns a copy if it without all
+    Given a DataFrame containing EAR data, returns a copy of it without all
     those invalid GPU columns.
 
     An invalid GPU column is a column with data of a GPU x, for which EAR did
@@ -39,7 +41,6 @@ def df_filter_invalid_gpu_cols(df: pd.DataFrame) -> pd.DataFrame:
 
         The regular expression pattern is taken from gpu_colname_pattern.
         """
-        # TODO: Use returns Maybe container
         match = re.fullmatch(gpu_colname_pattern, gpupwr_colname)
         if match:
             try:
@@ -165,17 +166,27 @@ def metric_agg_timeseries(df, metric):
             )
 
 
-def filter_batch_step(ear_df):
+def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, str]:
     """
     This function returns the DataFrame `ear_df` without any SLURM batch step
-    if it has some.
+    if it has some. It spects the DataFrame containing a column called
+    'STEPID'. If not encountered, returns a copy of the input argument.
 
     Parameters
     ----------
     ear_df: A DataFrame containing EAR signature data. It must have a column
             named 'STEPID'.
+
+    Return
+    ------
+    A Result type with a Success(pd.DataFrame) with the passed DataFrame
+    filtered or a Failure(str) indicating that the STEPID column does not exist
+    in the passed argument.
     """
-    return ear_df.loc[ear_df['STEPID'] != 4294967291]
+    if 'STEPID' in ear_df.columns:
+        return Success(ear_df.loc[ear_df['STEPID'] != 4294967291])
+    else:
+        return Failure('STEPID not in data.')
 
 
 def filter_and_query(df, rules):
