@@ -267,10 +267,8 @@ def read_apps_data(data_file: str)-> pd.DataFrame:
     df = pd.read_csv(data_file, sep=';')
 
     # don't take into account the bash step
-    # UINT_MAX = ctypes.c_uint(-5).value
-    # TODO verify it in other systems (Lluis?)
-    UINT_MAX = 4294967291
-    df = df.loc[df.STEPID != UINT_MAX]
+    UINT_MAX = 1_000_000_000
+    df = df.loc[df.STEPID < UINT_MAX]
 
     # compute node_non_gpu_power if GPUs are used ()
     ngpus = 0
@@ -294,8 +292,11 @@ def read_apps_data(data_file: str)-> pd.DataFrame:
     # To compute VPI
     df.rename(columns={"SPOPS_256": "FLOPS_256#F"}, inplace=True)
     df.rename(columns={"SPOPS_512": "FLOPS_512#F"}, inplace=True)
-    df.rename(columns={"DP_256"   : "FLOPS_256#D"}, inplace=True)
     df.rename(columns={"DPOPS_512": "FLOPS_512#D"}, inplace=True)
+    if "DP_256" in df.columns: #old version
+        df.rename(columns={'DP_256': 'FLOPS_256#D'}, inplace=True)
+    else:
+        df.rename(columns={"DPOPS_256"   : "FLOPS_256#D"}, inplace=True)
 
     # signatures we intersred in (can be expanded)
     sigs_list = [
