@@ -11,13 +11,14 @@
 
 """ Util functions. """
 
+import pandas
 
 from functools import reduce
 
 from .io_api import read_configuration
 
 
-def filter_df(data_f, **kwargs):
+def filter_df(data_f: pandas.DataFrame, **kwargs) -> pandas.DataFrame:
     """
     Filters the DataFrame `data_f`. **kwargs keys indicate the DataFrame
     columns you want to filter by, and keys are values.

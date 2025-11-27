@@ -11,17 +11,18 @@ authors = [
 description = "Core library for EAR analytics and Energy Models."
 readme = "README.md"
 keywords = ["data", "hpc", "analysis", "ear"]
-license = {text = "EPL-2.0"}
+license = "EPL-2.0"
 classifiers = [
   "Programming Language :: Python :: 3",
 ]
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
 	"numpy",
-  "pandas",
+  "pandas[performance, plot, output-formatting]",
   "importlib_resources",
 	"rich",
-  "pylatex"
+  "pylatex",
+	"returns",
 ]
 
 [tool.setuptools]
