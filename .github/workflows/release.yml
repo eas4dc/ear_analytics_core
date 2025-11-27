@@ -1,0 +1,14 @@
+name: Release ear_analytics_core
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  release:
+    uses: eas4dc/ear-tools/.github/workflows/python-release.yml@v6
+    with:
+      repository-url: ""   # empty → public PyPI
+    secrets:
+      pypi-token: ${{ secrets.PYPI_API_TOKEN }}
