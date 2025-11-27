@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    uses: eas4dc/ear-tools/.github/workflows/python-release.yml@v6
+    uses: eas4dc/ear-tools/.github/workflows/python-release.yml@v5
     with:
       repository-url: ""   # empty → public PyPI
     secrets:
