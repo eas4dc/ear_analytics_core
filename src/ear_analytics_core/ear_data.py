@@ -169,7 +169,7 @@ def metric_agg_timeseries(df, metric):
 def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, str]:
     """
     This function returns the DataFrame `ear_df` without any SLURM batch step
-    if it has some. It spects the DataFrame containing a column called
+    if it has some. It expects the DataFrame containing a column called
     'STEPID'. If not encountered, returns a copy of the input argument.
 
     Parameters
