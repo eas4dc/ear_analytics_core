@@ -5,10 +5,15 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
+permissions:
+  contents: write  # allow the reusable workflow to create releases/artifacts
+
 jobs:
   release:
     uses: eas4dc/ear-tools/.github/workflows/python-release.yml@v5
     with:
-      repository-url: ""   # empty → public PyPI
+      repository-url: https://redmine.eas4dc.com/pypi/
     secrets:
-      pypi-token: ${{ secrets.PYPI_API_TOKEN }}
+      private-username: ${{ secrets.PRIVATE_PYPI_USERNAME }}
+      private-password: ${{ secrets.PRIVATE_PYPI_PASSWORD }}
+
