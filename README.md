@@ -1,8 +1,14 @@
 # ear_analytics_core
-A package to be used to work with EAR data.
-
+Core library for EAR data analytics.
 
 ## Installation
+
+Since version 5.0.0, `ear_analytics_core` was uploaded to PyPI and can be installed via pip:
+```bash
+pip install ear_analytics_core
+```
+
+Alternatively, you can install it from source by cloning the repository and running:
 
 ```bash
 pip install -U pip
