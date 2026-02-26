@@ -166,7 +166,7 @@ def metric_agg_timeseries(df, metric):
             )
 
 
-def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, str]:
+def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, Exception]:
     """
     This function returns the DataFrame `ear_df` without any SLURM batch step
     if it has some. It expects the DataFrame containing a column called
@@ -186,7 +186,7 @@ def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, str]:
     if 'STEPID' in ear_df.columns:
         return Success(ear_df.loc[ear_df['STEPID'] != 4294967291])
     else:
-        return Failure('STEPID not in data.')
+        return Failure(ValueError('STEPID not in data.'))
 
 
 def filter_and_query(df, rules):
