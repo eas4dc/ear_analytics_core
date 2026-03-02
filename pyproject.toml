@@ -15,14 +15,14 @@ license = "EPL-2.0"
 classifiers = [
   "Programming Language :: Python :: 3",
 ]
-version = "6.0.0"
+version = "6.1.0"
 dependencies = [
-	"numpy",
-  "pandas[performance, plot, output-formatting]",
+  "numpy",
+  "pandas[plot, output-formatting]",
   "importlib_resources",
-	"rich",
+  "rich",
   "pylatex",
-	"returns",
+  "returns",
 ]
 
 [tool.setuptools]
