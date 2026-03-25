@@ -21,6 +21,26 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 
 from . import io_api
 
+_LABEL_MAX_CHARS = 18
+
+
+def _row_labels(col, gpu_match):
+    """Return (node_text, job_text) for one ImageGrid row, truncated and
+    left-padded to _LABEL_MAX_CHARS so the label block always has a fixed
+    visual width when rendered in a monospace font."""
+    node = col[4]
+    if gpu_match:
+        node = f'{node}.GPU{gpu_match.group(1)}'
+    job = f'{col[1]}.{col[2]}.{col[3]}'
+
+    def _fit(s):
+        s = str(s)
+        if len(s) > _LABEL_MAX_CHARS:
+            s = s[:_LABEL_MAX_CHARS - 1] + '\u2026'
+        return s.ljust(_LABEL_MAX_CHARS)
+
+    return _fit(node), _fit(job)
+
 
 def _start_end_index_1s(start, end, orig_index):
     """Returns an Index based on `orig_index`, starting at `start` and ending
@@ -50,7 +70,8 @@ def _build_gradient_norm(data_values, step, v_min=None, v_max=None):
         else:
             print(f'Consider decreasing the step (currently {step})')
     cmap = mpl.colormaps['viridis_r']
-    return mpl.colors.BoundaryNorm(bounds, cmap.N, extend='both')
+    extend = 'both' if v_min is not None or v_max is not None else 'neither'
+    return mpl.colors.BoundaryNorm(bounds, cmap.N, extend=extend)
 
 
 def _get_elapsed(index, tick_idx):
@@ -165,17 +186,15 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
     for i, _ in enumerate(m_data_array):
         gpu_metric_match = gpu_metric_regex.search(m_data.columns[i][0])
 
-        if gpu_metric_match:
-            ylabel_text = (f'{m_data.columns[i][1]}'
-                           f'.{m_data.columns[i][2]}'
-                           f'.{m_data.columns[i][3]}@{m_data.columns[i][4]}.GPU{gpu_metric_match.group(1)}')
-        else:
-            ylabel_text = (f'{m_data.columns[i][1]}'
-                           f'.{m_data.columns[i][2]}'
-                           f'.{m_data.columns[i][3]}@{m_data.columns[i][4]}')
+        node_text, job_text = _row_labels(m_data.columns[i], gpu_metric_match)
 
         axs[i].grid(axis='x', alpha=0.5)
-        axs[i].set_yticks([0], labels=[ylabel_text])
+        axs[i].set_yticks([])
+        trans = mpl.transforms.offset_copy(axs[i].transAxes, fig=fig, x=-4, y=0, units='points')
+        axs[i].text(0, 0.70, node_text, transform=trans,
+                    ha='right', va='center', fontsize=7, clip_on=False)
+        axs[i].text(0, 0.28, job_text, transform=trans,
+                    ha='right', va='center', fontsize=5.5, clip_on=False)
         axs[i].set_xmargin(0)
         axs[i].set_ymargin(0)
 
@@ -186,6 +205,8 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
                                    'white' for x in m_data_array[i]])
 
     axs[-1].minorticks_on()
+    axs[-1].text(1.02, 0, '(s)', transform=axs[-1].transAxes,
+                 va='top', ha='left', clip_on=False)
 
     # Create the figure colorbar
 
