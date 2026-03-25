@@ -166,7 +166,7 @@ def metric_agg_timeseries(df, metric):
             )
 
 
-def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, str]:
+def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, Exception]:
     """
     This function returns the DataFrame `ear_df` without any SLURM batch step
     if it has some. It expects the DataFrame containing a column called
@@ -186,7 +186,7 @@ def filter_batch_step(ear_df: pd.DataFrame) -> Result[pd.DataFrame, str]:
     if 'STEPID' in ear_df.columns:
         return Success(ear_df.loc[ear_df['STEPID'] != 4294967291])
     else:
-        return Failure('STEPID not in data.')
+        return Failure(ValueError('STEPID not in data.'))
 
 
 def filter_and_query(df, rules):
@@ -224,8 +224,26 @@ def filter_and_query(df, rules):
     prefilter = rules.get('filter', {'items': df.columns})
     df_filtered = df.filter(**prefilter)
 
+    # Grouped rules may not define a top-level filter. In that case, keep only
+    # columns matched by groups to avoid reporting unrelated metrics later.
+    groups = rules.get('groups')
+    if groups and 'filter' not in rules:
+        group_cols = []
+        for group in groups:
+            group_prefilter = group.get('filter', {'items': df.columns})
+            group_cols.extend(df.filter(**group_prefilter).columns.tolist())
+
+        # Remove duplicates preserving order.
+        group_cols = list(dict.fromkeys(group_cols))
+        if group_cols:
+            df_filtered = df.loc[:, group_cols]
+        else:
+            return df_filtered.iloc[0:0], None
+
     if not df_filtered.empty:
         expr = create_ear_dataframe_query(df_filtered, rules)
+        if expr is None:
+            return df_filtered.iloc[0:0], None
         return df_filtered.query(expr), expr
     return df_filtered, None
 
@@ -234,19 +252,40 @@ def create_ear_dataframe_query(df, rules):
     """Support function for creating the query usied by
     ear_dataframe_filter_and_query"""
     expr = rules.get('expr', None)
-    if expr is None:
-        try:
-            criteria = rules['criteria']
-        except KeyError as e:
-            warning(f'The rule has not {e} field.')
-            return None
-        # Create the query to check whether some row matches the
-        # alert criteria
-        # Format: <column> <criteria> <join> <column> <criteria>...
-        join = rules.get('join', 'or')
-        expr = (f' {join} '
-                .join([f'`{col}` {criteria}'
-                       for col in df.columns])
-                )
-    return expr
+    if expr is not None:
+        return expr
+    
+    groups = rules.get('groups')
+    if groups:
+        outer_join = rules.get('join', 'and')
+        group_exprs = []
 
+        for g in groups:
+            # apply group-specific prefilter to get its columns
+            prefilter = g.get('filter', {'items': df.columns})
+            df_g = df.filter(**prefilter)
+
+            if df_g.empty:
+                warning("A group has no matching columns.")
+                return None
+
+            criteria = g.get('criteria')
+            if criteria is None:
+                warning("A group is missing 'criteria'.")
+                return None
+
+            inner_join = g.get('join', 'or')
+            g_expr = f" {inner_join} ".join([f"`{c}` {criteria}" for c in df_g.columns])
+            group_exprs.append(f"({g_expr})")
+
+        return f" {outer_join} ".join(group_exprs)
+
+    # Existing fallback behavior (single criteria across all (pre)filtered columns)
+    try:
+        criteria = rules['criteria']
+    except KeyError as e:
+        warning(f'The rule has not {e} field.')
+        return None
+
+    join = rules.get('join', 'or')
+    return f" {join} ".join([f"`{col}` {criteria}" for col in df.columns])
