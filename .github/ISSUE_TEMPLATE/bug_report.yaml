@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a bug or incorrect behavior
+title: "[Bug]: "
+labels: ["bug"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is wrong and where.
+      placeholder: Describe the issue and where it occurs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide steps to reproduce the issue.
+      placeholder: |
+        1. 
+        2.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected vs actual behavior
+      description: Describe the expected behavior and what actually happened.
+      placeholder: |
+        Expected:
+        - 
+
+        Actual:
+        -
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide relevant environment information.
+      placeholder: |
+        Tool version and branch:
+        EAR Tools dependencies versions and branches:
+        Other relevant python environment info:
+    validations:
+      required: false
+
+  - type: textarea
+    id: fix_direction
+    attributes:
+      label: Fix direction
+      description: Initial thoughts on the fix or indicate if it should be discussed in comments.
+      placeholder: |
+        Initial thoughts on the fix, or "to be discussed in comments."
+        Target branch: vX
+    validations:
+      required: false
