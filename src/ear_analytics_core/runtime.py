@@ -148,9 +148,19 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
                 .loc[:, [st_colname, et_colname]]  # Start/end time
                 .apply(pd.to_datetime, unit='s'))
 
+    # Set of (JOBID, STEPID, APPID, NODENAME) combinations that actually have
+    # loop data. An app may have an application signature without any loop
+    # signatures (e.g. it ran too briefly), in which case it's absent here.
+    loop_combos = set(m_data.columns.droplevel(0))
+
     # Fill data between the start/end time of each job,step,app,node
     jobs = []
     for job_id, step_id, app_id, node in job_data.index:
+        if (job_id, step_id, app_id, node) not in loop_combos:
+            print(f'Warning: no loop data for job {job_id}, step {step_id}, '
+                  f'app {app_id}, node {node}; skipping.')
+            continue
+
         start_time = job_data.loc[(job_id, step_id, app_id, node),
                                   st_colname]
         end_time = job_data.loc[(job_id, step_id, app_id, node), et_colname]
@@ -161,6 +171,10 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
                        .pipe(reindex_application, start_time, end_time)
                        .bfill())
         jobs.append(app_node_df)
+
+    if not jobs:
+        sys.exit(f'No loop data matches the application data for metric '
+                 f'{metric}. Check that loops and apps files are consistent.')
 
     m_data = pd.concat(jobs, axis=1).pipe(flat_df_columns)
 
