@@ -23,6 +23,15 @@ from . import io_api
 
 _LABEL_MAX_CHARS = 18
 
+# Columns identifying one application run on one node.
+_KEY_COLUMNS = ['JOBID', 'STEPID', 'APPID', 'NODENAME']
+
+# EARaaS can run several pods under the same key; POD_UID tells them apart.
+_POD_COLUMN = 'POD_UID'
+
+# EAR stores this value when a start/end time was never set.
+_UNSET_TIME = 2**31 - 1
+
 
 def _row_labels(col, gpu_match):
     """Return (node_text, job_text) for one ImageGrid row, truncated and
@@ -32,6 +41,8 @@ def _row_labels(col, gpu_match):
     if gpu_match:
         node = f'{node}.GPU{gpu_match.group(1)}'
     job = f'{col[1]}.{col[2]}.{col[3]}'
+    if len(col) > 5 and col[5]:
+        job = f'{job}\u00b7{str(col[5])[:6]}'  # pod
 
     def _fit(s):
         s = str(s)
@@ -84,13 +95,43 @@ def _get_elapsed(index, tick_idx):
     return time_deltas[tick_idx].seconds
 
 
-def _metric_timeseries_by_node(df, metric):
+def _metric_timeseries_by_node(df, metric, key=None):
     """
     """
-    columns = ['JOBID', 'STEPID', 'APPID', 'NODENAME']
+    columns = key or _KEY_COLUMNS
     return (df
             .pivot_table(columns=columns, values=metric, index='TIMESTAMP')
             )
+
+
+def _signature_key(df, df_app):
+    """Columns identifying one timeline row: the job/step/app/node key, plus
+    the pod when both the loop and application signatures have one."""
+    if _POD_COLUMN in df.columns and _POD_COLUMN in df_app.columns:
+        return _KEY_COLUMNS + [_POD_COLUMN]
+    return list(_KEY_COLUMNS)
+
+
+def _is_set_time(value, not_before=None):
+    """Whether `value` is a usable epoch time (set, and not before
+    `not_before` if given)."""
+    return (pd.notna(value) and 0 < value < _UNSET_TIME
+            and (not_before is None or value >= not_before))
+
+
+def _app_window(app, loop_first, loop_last, st_colname, et_colname):
+    """Return the (start, end) epoch seconds to draw for one application.
+
+    Uses the configured start/end columns. When one of them is unset (e.g.,
+    EARaaS leaves JOB_EARL_END_TIME at INT32_MAX), falls back to
+    JOB_START_TIME/JOB_END_TIME, then to the application's first/last loop
+    timestamp.
+    """
+    start = next((app[c] for c in (st_colname, 'JOB_START_TIME')
+                  if c in app.index and _is_set_time(app[c])), loop_first)
+    end = next((app[c] for c in (et_colname, 'JOB_END_TIME')
+                if c in app.index and _is_set_time(app[c], start)), loop_last)
+    return start, max(end, start)
 
 
 def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
@@ -129,9 +170,24 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
         df.columns = df.columns.to_flat_index()
         return df
 
+    key = _signature_key(df, df_app)
+    if _POD_COLUMN in key:
+        # pivot_table drops rows whose key has a NaN.
+        df = df.assign(**{_POD_COLUMN: df[_POD_COLUMN].fillna('')})
+        df_app = df_app.assign(**{_POD_COLUMN: df_app[_POD_COLUMN].fillna('')})
+
+    # One application signature per key; a repeated key means a malformed
+    # file.
+    duplicated = df_app[df_app.duplicated(key, keep=False)]
+    if not duplicated.empty:
+        keys = sorted(set(duplicated[key].itertuples(index=False, name=None)))
+        sys.exit(f'Malformed application signatures: {len(duplicated)} rows '
+                 f'share the same {"/".join(key)}: {keys}')
+
     # Metric data is a pivot table indexed by TIMESTAMP, with a MultiIndex
-    # columns with (metric, JOBID, STEPID, APPID, NODENAME).
-    m_data = _metric_timeseries_by_node(df, df.filter(regex=metric).columns)
+    # columns with (metric, JOBID, STEPID, APPID, NODENAME[, POD_UID]).
+    m_data = _metric_timeseries_by_node(df, df.filter(regex=metric).columns,
+                                        key)
 
     # Convert index to datetime
     m_data.index = pd.to_datetime(m_data.index, unit='s')
@@ -142,22 +198,28 @@ def runtime_metric_timeline_fig(df, df_app, metric, step, runtime_config,
     # Job end time column name
     et_colname = kwargs.get('end_time_colname', 'JOB_EARL_END_TIME')
 
-    # Job DataFrame indexed by (JOBID, STEPID, APPID, NODENAME)
-    job_data = (df_app
-                .set_index(['JOBID', 'STEPID', 'APPID', 'NODENAME'])
-                .loc[:, [st_colname, et_colname]]  # Start/end time
-                .apply(pd.to_datetime, unit='s'))
+    # Application signatures indexed by key, and each key's loop time span.
+    job_data = df_app.set_index(key)
+    loop_span = df.groupby(key)['TIMESTAMP'].agg(['min', 'max'])
 
-    # Fill data between the start/end time of each job,step,app,node
+    # Short applications may have no loop signatures: nothing to draw.
+    no_loops = job_data.index.difference(loop_span.index)
+    if not no_loops.empty:
+        print(f'Warning: no loop data for {len(no_loops)} application '
+              f'signature(s), skipping: {list(no_loops)}')
+        job_data = job_data.drop(index=no_loops)
+    if job_data.empty:
+        sys.exit('No loop data matches the application signatures: '
+                 'nothing to plot.')
+
+    # Fill data between the start/end time of each application
     jobs = []
-    for job_id, step_id, app_id, node in job_data.index:
-        start_time = job_data.loc[(job_id, step_id, app_id, node),
-                                  st_colname]
-        end_time = job_data.loc[(job_id, step_id, app_id, node), et_colname]
+    for app_key, app in job_data.iterrows():
+        start_time, end_time = _app_window(app, *loop_span.loc[app_key],
+                                           st_colname, et_colname)
 
         app_node_df = (m_data
-                       .loc[:,
-                            (slice(None), job_id, step_id, app_id, node)]
+                       .loc[:, (slice(None), *app_key)]
                        .pipe(reindex_application, start_time, end_time)
                        .bfill())
         jobs.append(app_node_df)
