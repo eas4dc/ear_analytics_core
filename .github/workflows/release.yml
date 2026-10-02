@@ -23,28 +23,33 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Ensure tag commit is on a stable branch (v5, v6, v7)
+      # Releases (major/minor/patch) are tagged on main, after merging the
+      # development branch (e.g. v7) into it. Legacy branches (v5, v6) are only
+      # kept for basic client support and may only tag patch releases of their
+      # own major version (e.g. v6.1.4 on v6).
+      - name: Ensure tag commit is on main, or a patch on its legacy branch
         run: |
           if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
             echo "::error::This workflow must be triggered by a tag starting with 'v'."
             exit 1
           fi
 
+          TAG="${GITHUB_REF##*/}"      # e.g. v7.0.0
+          IFS=. read -r MAJOR MINOR PATCH <<< "${TAG#v}"
+
           git fetch origin --prune
           COMMIT_SHA=$(git rev-parse HEAD)
 
-          allowed=false
-          for branch in v5 v6 v7; do
-            if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-              if git branch -r --contains "$COMMIT_SHA" | grep -q "origin/${branch}$"; then
-                echo "✅ Commit is contained in ${branch}"
-                allowed=true
-              fi
+          if git branch -r --contains "$COMMIT_SHA" | grep -q "origin/main$"; then
+            echo "✅ Commit is contained in main"
+          elif git branch -r --contains "$COMMIT_SHA" | grep -q "origin/v${MAJOR}$"; then
+            if [[ "$PATCH" == "0" ]]; then
+              echo "::error::${TAG} is on legacy branch v${MAJOR}: only patch releases (vX.Y.Z, Z > 0) may be tagged there. Major/minor releases are tagged on main."
+              exit 1
             fi
-          done
-
-          if [ "$allowed" != "true" ]; then
-            echo "::error::Tag is not on any stable branch (v5, v6, v7). Aborting release."
+            echo "✅ Patch release ${TAG} on legacy branch v${MAJOR}"
+          else
+            echo "::error::${TAG} is neither on main nor on branch v${MAJOR}. Aborting release."
             exit 1
           fi
 
