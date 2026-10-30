@@ -347,7 +347,7 @@ def runtime_get_gpu_metrics_regex(runtime_config):
     try:
         return runtime_config['gpu_data']['gpu_columns_re']
     except KeyError as e:
-        sys.exit(f'{e} field not found in configuration:{runtime_config}')
+        sys.exit(f'{e} field not found in the runtime configuration.')
 
 
 @runtime_config_section
